@@ -11,4 +11,6 @@ namespace Mb\DoctrineLogBundle\Annotation;
  */
 class Log
 {
+    /** @var string Expression to convert an object to a string  */
+    public $expression = null;
 }

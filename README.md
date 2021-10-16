@@ -189,7 +189,6 @@ Configuration
 -------------
 
 If you are using blameable trait or timestampable trait then you must want to log changes of those properties. Or you may have some common properties that is added in many entries and you don't want to log the changes of those properties then add this configuration.
-A different entity manager can be configured to support multiple entity managers. The listener service could be extended to make any required changes.
 
 ```yaml
 # config/packages/mb_doctrine_log.yaml
@@ -201,7 +200,7 @@ mb_doctrine_log:
     - createAt
     - updatedAt
   entity_manager: 'default'
-  listener_class: 'Mb\DoctrineLogBundle\EventListener\Logger'
+  event_subscriber: 'Mb\DoctrineLogBundle\EventSubscriber\Logger'
 ```
 
 Any property name you configure here, if the Loggable entity has that property will be ignored.
@@ -216,8 +215,6 @@ In the `mb_entity_log` table there are 9 columns
  3. foreign_key (the id of the object)
  4. action (create|update|delete)
  5. changes (serialized changes, keys are property name, and value is an array, 1st element prev val, 2nd element new val)
- 6. created_by (the user to blame)
- 7. updated_by (the user to blame)
  8. created_at (timestamp)
  9. updated_at
 

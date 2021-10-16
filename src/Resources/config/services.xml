@@ -5,15 +5,22 @@
         https://symfony.com/schema/dic/services/services-1.0.xsd">
 
     <services>
-        <service class="Mb\DoctrineLogBundle\EventListener\Logger" id="mb_doctrine_log.event_listener.logger">
-            <tag name="doctrine.event_listener" event="postPersist" priority="1"/>
-            <tag name="doctrine.event_listener" event="postUpdate" priority="1"/>
-            <tag name="doctrine.event_listener" event="postFlush" priority="1"/>
-            <tag name="doctrine.event_listener" event="preRemove" priority="1"/>
+        <defaults autowire="true" autoconfigure="true"/>
+
+        <prototype namespace="Mb\DoctrineLogBundle\" resource="../../../src/*" exclude="../src/{DependencyInjection,Entity,MbDoctrineLogBundle}"/>
+
+        <service class="Mb\DoctrineLogBundle\EventSubscriber\Logger" id="mb_doctrine_log.event_subscriber.logger">
+            <tag name="doctrine.event_subscriber" />
             <argument type="service" id="doctrine.orm.default_entity_manager"/>
-            <argument type="service" id="jms_serializer.serializer"/>
+            <argument type="service" id="mb_doctrine_log.service.logger"/>
             <argument type="service" id="mb_doctrine_log.service.annotation_reader"/>
             <argument type="service" id="monolog.logger"/>
+            <argument>%mb_doctrine_log.ignore_properties%</argument>
+        </service>
+
+        <service class="Mb\DoctrineLogBundle\Service\Logger" id="mb_doctrine_log.service.logger">
+            <argument type="service" id="doctrine.orm.default_entity_manager" />
+            <argument type="service" id="security.helper" />
         </service>
 
         <service class="Mb\DoctrineLogBundle\Service\AnnotationReader" id="mb_doctrine_log.service.annotation_reader">
@@ -21,4 +28,3 @@
         </service>
     </services>
 </container>
-

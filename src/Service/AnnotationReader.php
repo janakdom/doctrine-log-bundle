@@ -1,5 +1,4 @@
 <?php
-
 namespace Mb\DoctrineLogBundle\Service;
 
 use Mb\DoctrineLogBundle\Annotation\Exclude;
@@ -10,6 +9,7 @@ use Doctrine\Common\Annotations\Reader;
 
 /**
  * Class AnnotationReader
+ *
  * @package Mb\DoctrineLogBundle\Service
  */
 class AnnotationReader
@@ -31,6 +31,7 @@ class AnnotationReader
 
     /**
      * AnnotationReader constructor.
+     *
      * @param Reader $reader
      */
     public function __construct(Reader $reader)
@@ -57,9 +58,17 @@ class AnnotationReader
      * @param null|string $property
      * @return bool
      */
-    public function isLoggable($property = null)
+    public function isLoggable($property = null) :bool
     {
         return !$property ? $this->classAnnotation instanceof Loggable : $this->isPropertyLoggable($property);
+    }
+
+    public function getOnDeleteLogExpression(): ?string {
+        if($this->classAnnotation instanceof Loggable) {
+            return $this->classAnnotation->onDeleteLog;
+        }
+
+        return null;
     }
 
     /**
@@ -69,7 +78,7 @@ class AnnotationReader
      * @return bool
      * @throws \ReflectionException
      */
-    private function isPropertyLoggable($property)
+    private function isPropertyLoggable($property) :bool
     {
         $property = new \ReflectionProperty(
             str_replace('Proxies\__CG__\\', '', get_class($this->entity)),
@@ -87,5 +96,26 @@ class AnnotationReader
         $annotation = $this->reader->getPropertyAnnotation($property, Exclude::class);
 
         return !$annotation instanceof Exclude;
+    }
+
+    /**
+     * @param $property
+     * @return ?string
+     * @throws \ReflectionException
+     */
+    public function getPropertyExpression($property)
+    {
+        $property = new \ReflectionProperty(
+            str_replace('Proxies\__CG__\\', '', get_class($this->entity)),
+            $property
+        );
+
+        $annotation = $this->reader->getPropertyAnnotation($property, Log::class);
+
+        if ($annotation instanceof Log) {
+            return $annotation->expression;
+        }
+
+        return null;
     }
 }

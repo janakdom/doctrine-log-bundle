@@ -2,9 +2,10 @@
 
 namespace Mb\DoctrineLogBundle\Entity;
 
+use DateTimeImmutable;
 use Doctrine\ORM\Mapping as ORM;
-use Gedmo\Blameable\Traits\BlameableEntity;
-use Gedmo\Timestampable\Traits\TimestampableEntity;
+use Knp\DoctrineBehaviors\Contract\Entity\BlameableInterface;
+use Knp\DoctrineBehaviors\Model\Blameable\BlameableTrait;
 
 /**
  * Class Log
@@ -16,9 +17,6 @@ use Gedmo\Timestampable\Traits\TimestampableEntity;
  */
 class Log
 {
-    use BlameableEntity,
-        TimestampableEntity;
-
     /**
      * Action create
      */
@@ -51,9 +49,9 @@ class Log
     protected $objectClass;
 
     /**
-     * @var int $foreignKey
+     * @var string $foreignKey
      *
-     * @ORM\Column(name="foreign_key", type="integer")
+     * @ORM\Column(name="foreign_key", type="string", length=1024)
      */
     protected $foreignKey;
 
@@ -65,18 +63,43 @@ class Log
     protected $action;
 
     /**
-     * @var string $changes
+     * @var array $changes
      *
-     * @ORM\Column(name="changes", type="text", nullable=true)
+     * @ORM\Column(name="changes", type="json", nullable=true)
      */
     protected $changes;
 
     /**
+     * @var \DateTime
+     *
+     * @ORM\Column(type="datetime_immutable", nullable=false)
+     */
+    protected $createdAt;
+
+    /**
+     * @var string
+     *
+     * @ORM\Column(type="string", length=255)
+     */
+    protected $changedBy;
+
+    /**
      * Log constructor.
      */
-    public function __construct()
-    {
-        $this->created = new \DateTime();
+    public function __construct(
+        string $objectClass,
+        string $foreignKey,
+        string $action,
+        ?string $changedBy,
+        ?array $changes
+    ) {
+        $this->objectClass = $objectClass;
+        $this->foreignKey = $foreignKey;
+        $this->action = $action;
+        $this->changes = $changes;
+
+        $this->changedBy = $changedBy;
+        $this->createdAt = new DateTimeImmutable();
     }
 
     /**
@@ -90,20 +113,6 @@ class Log
     }
 
     /**
-     * Set objectClass
-     *
-     * @param string $objectClass
-     *
-     * @return $this
-     */
-    public function setObjectClass($objectClass) : Log
-    {
-        $this->objectClass = $objectClass;
-
-        return $this;
-    }
-
-    /**
      * Get objectClass
      *
      * @return string
@@ -114,41 +123,13 @@ class Log
     }
 
     /**
-     * Set foreignKey
-     *
-     * @param integer $foreignKey
-     *
-     * @return $this
-     */
-    public function setForeignKey($foreignKey) : Log
-    {
-        $this->foreignKey = $foreignKey;
-
-        return $this;
-    }
-
-    /**
      * Get foreignKey
      *
-     * @return int
+     * @return string
      */
-    public function getForeignKey() : int
+    public function getForeignKey() : string
     {
         return $this->foreignKey;
-    }
-
-    /**
-     * Set action
-     *
-     * @param string $action
-     *
-     * @return $this
-     */
-    public function setAction($action) : Log
-    {
-        $this->action = $action;
-
-        return $this;
     }
 
     /**
@@ -162,19 +143,9 @@ class Log
     }
 
     /**
-     * Returns the pretty class name
-     *
-     * @return string
-     */
-    public function getPrettyClass() : string
-    {
-        return substr($this->objectClass, 18, strlen($this->objectClass));
-    }
-
-    /**
      * Get changes
      *
-     * @return string
+     * @return array
      */
     public function getChanges()
     {
@@ -182,33 +153,10 @@ class Log
     }
 
     /**
-     * Set changes
-     *
-     * @param string $changes
-     * @return Log
+     * @return \DateTime
      */
-    public function setChanges($changes): Log
+    public function getCreatedAt(): \DateTime
     {
-        $this->changes = $changes;
-
-        return $this;
-    }
-
-    /**
-     * Returns the sonata format
-     *
-     * @return array
-     */
-    public function getChangesSonata()
-    {
-        return json_encode(json_decode($this->changes), JSON_PRETTY_PRINT);
-    }
-    
-    /**
-     * @return mixed
-     */
-    public function getChangesArray()
-    {
-        return json_decode($this->changes, true);
+        return $this->createdAt;
     }
 }
