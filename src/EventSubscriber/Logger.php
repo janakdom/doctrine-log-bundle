@@ -60,6 +60,11 @@ final class Logger implements EventSubscriber
     private $ignoreProperties = [];
 
     /**
+     * @var bool
+     */
+    private $enabled = true;
+
+    /**
      * Logger constructor.
      *
      * @param EntityManagerInterface $em
@@ -73,7 +78,8 @@ final class Logger implements EventSubscriber
         LoggerService $loggerService,
         AnnotationReader $reader,
         LoggerInterface $monolog,
-        array $ignoreProperties
+        array $ignoreProperties,
+        bool $enabled
     )
     {
         $this->em = $em;
@@ -82,6 +88,7 @@ final class Logger implements EventSubscriber
         $this->monolog = $monolog;
         $this->expressionLanguage = new ExpressionLanguage();
         $this->ignoreProperties = $ignoreProperties;
+        $this->enabled = $enabled;
     }
 
     /**
@@ -282,6 +289,9 @@ final class Logger implements EventSubscriber
      */
     public function getSubscribedEvents(): array
     {
+        if(!$this->enabled)
+            return [];
+
         return [
             Events::postPersist,
             Events::postUpdate,
