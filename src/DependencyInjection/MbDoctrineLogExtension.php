@@ -27,5 +27,6 @@ class MbDoctrineLogExtension extends Extension
         $config = $this->processConfiguration($configuration, $configs);
 
         $containerBuilder->setParameter('mb_doctrine_log.ignore_properties', $config['ignore_properties']);
+        $containerBuilder->setParameter('mb_doctrine_log.enabled', $config['enabled']);
     }
 }

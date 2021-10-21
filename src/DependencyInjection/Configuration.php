@@ -28,6 +28,9 @@ class Configuration implements ConfigurationInterface
             ->children()
                 ->arrayNode('ignore_properties')->prototype('scalar')->end()
             ->end()
+            ->scalarNode('enabled')
+                ->defaultFalse()
+            ->end()
         ;
 
         return $treeBuilder;

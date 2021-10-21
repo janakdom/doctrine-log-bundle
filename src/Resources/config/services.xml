@@ -16,6 +16,7 @@
             <argument type="service" id="mb_doctrine_log.service.annotation_reader"/>
             <argument type="service" id="monolog.logger"/>
             <argument>%mb_doctrine_log.ignore_properties%</argument>
+            <argument>%mb_doctrine_log.enabled%</argument>
         </service>
 
         <service class="Mb\DoctrineLogBundle\Service\Logger" id="mb_doctrine_log.service.logger">
