@@ -65,7 +65,7 @@ class AnnotationReader
 
     public function getOnDeleteLogExpression(): ?string {
         if($this->classAnnotation instanceof Loggable) {
-            return $this->classAnnotation->onDeleteLog;
+            return $this->classAnnotation->onDeleteExpr;
         }
 
         return null;
