@@ -14,7 +14,7 @@
             <argument type="service" id="doctrine.orm.default_entity_manager"/>
             <argument type="service" id="mb_doctrine_log.service.logger"/>
             <argument type="service" id="mb_doctrine_log.service.annotation_reader"/>
-            <argument type="service" id="monolog.logger"/>
+            <argument type="service" id="monolog.logger" on-invalid="null"/>
             <argument>%mb_doctrine_log.ignore_properties%</argument>
             <argument>%mb_doctrine_log.enabled%</argument>
         </service>

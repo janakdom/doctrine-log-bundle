@@ -2,16 +2,17 @@
 
 namespace Mb\DoctrineLogBundle\EventSubscriber;
 
+use Doctrine\ORM\Events;
+use ReflectionException;
+use Psr\Log\LoggerInterface;
 use Doctrine\Common\EventSubscriber;
 use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\ORM\Event\LifecycleEventArgs;
 use Doctrine\ORM\Event\OnFlushEventArgs;
+use Doctrine\ORM\Event\LifecycleEventArgs;
 use Doctrine\ORM\Event\PostFlushEventArgs;
-use Doctrine\ORM\Events;
 use Mb\DoctrineLogBundle\Entity\Log as LogEntity;
 use Mb\DoctrineLogBundle\Service\AnnotationReader;
 use Mb\DoctrineLogBundle\Service\Logger as LoggerService;
-use Psr\Log\LoggerInterface;
 use Symfony\Component\ExpressionLanguage\ExpressionLanguage;
 
 /**
@@ -24,60 +25,37 @@ use Symfony\Component\ExpressionLanguage\ExpressionLanguage;
  */
 final class Logger implements EventSubscriber
 {
-    /**
-     * @var array
-     */
-    protected $logs;
+    protected array $logs;
 
-    /**
-     * @var EntityManagerInterface
-     */
-    private $em;
+    private EntityManagerInterface $em;
 
-    /**
-     * @var LoggerService
-     */
-    private $loggerService;
+    private LoggerService $loggerService;
 
-    /**
-     * @var AnnotationReader
-     */
-    private $reader;
+    private AnnotationReader $reader;
 
-    /**
-     * @var LoggerInterface
-     */
-    private $monolog;
+    private ?LoggerInterface $monolog;
 
-    /**
-     * @var ExpressionLanguage
-     */
-    private $expressionLanguage;
+    private ExpressionLanguage $expressionLanguage;
 
-    /**
-     * @var array
-     */
-    private $ignoreProperties = [];
+    private array $ignoreProperties = [];
 
-    /**
-     * @var bool
-     */
-    private $enabled = true;
+    private bool $enabled = true;
 
     /**
      * Logger constructor.
      *
      * @param EntityManagerInterface $em
-     * @param LoggerService          $loggerService
-     * @param AnnotationReader       $reader
-     * @param LoggerInterface        $monolog
-     * @param array                  $ignoreProperties
+     * @param LoggerService $loggerService
+     * @param AnnotationReader $reader
+     * @param LoggerInterface|null $monolog
+     * @param array $ignoreProperties
+     * @param bool $enabled
      */
     public function __construct(
         EntityManagerInterface $em,
         LoggerService $loggerService,
         AnnotationReader $reader,
-        LoggerInterface $monolog,
+        ?LoggerInterface $monolog,
         array $ignoreProperties,
         bool $enabled
     )
@@ -129,6 +107,7 @@ final class Logger implements EventSubscriber
      * Get changed in many-to-many and many-to-one collections
      *
      * @param OnFlushEventArgs $args
+     * @throws ReflectionException
      */
     public function onFlush(OnFlushEventArgs $args)
     {
@@ -207,7 +186,7 @@ final class Logger implements EventSubscriber
        try {
             $this->reader->init($entity);
             if ($this->reader->isLoggable()) {
-                $changeSet = null;
+                $labeledChangeSet = [];
 
                 if ($action === LogEntity::ACTION_UPDATE) {
                     $uow = $this->em->getUnitOfWork();
@@ -215,10 +194,9 @@ final class Logger implements EventSubscriber
                     // get changes => should be already computed here (is a listener)
                     $changeSet = $uow->getEntityChangeSet($entity);
                     // if we have no changes left => don't create revision log
-                    if (count($changeSet) == 0) {
+                    if (empty($changeSet)) {
                         return;
                     }
-
 
                     // just getting the changed objects ids
                     foreach ($changeSet as $key => &$values) {
@@ -246,15 +224,19 @@ final class Logger implements EventSubscriber
 
                             if (is_object($values[0]) && method_exists($values[0], 'getId')) {
                                 $values[0] = $values[0]->getId();
-                            } elseif ($values[0] instanceof StreamInterface) {
-                                $values[0] = (string)$values[1];
                             }
 
                             if (is_object($values[1]) && method_exists($values[1], 'getId')) {
                                 $values[1] = $values[1]->getId();
-                            } elseif ($values[1] instanceof StreamInterface) {
-                                $values[1] = (string)$values[1];
                             }
+                        }
+
+
+                        $label = $this->reader->getPropertyLabel($key);
+                        if($label) {
+                            $labeledChangeSet[$label] = $values;
+                        } else {
+                            $labeledChangeSet[$key] = $values;
                         }
                     }
                 }
@@ -263,24 +245,27 @@ final class Logger implements EventSubscriber
                     $expression = $this->reader->getOnDeleteLogExpression();
 
                     if(!empty($expression)) {
-                        $changeSet['_remove'] = $this->expressionLanguage->evaluate($expression, ['obj' => $entity]);
+                        $labeledChangeSet['_remove'] = $this->expressionLanguage->evaluate($expression, ['obj' => $entity]);
                     }
                 }
 
-                if ($action !== LogEntity::ACTION_UPDATE || !empty($changeSet)) {
+                if ($action !== LogEntity::ACTION_UPDATE || !empty($labeledChangeSet)) {
                     if (isset($this->logs[spl_object_hash(($entity))])) {
-                        $changeSet = array_merge($changeSet, $this->logs[spl_object_hash($entity)]->getChanges());
+                        $labeledChangeSet = array_merge($labeledChangeSet, $this->logs[spl_object_hash($entity)]->getChanges());
                     }
                     $this->logs[spl_object_hash($entity)] = $this->loggerService->log(
                         $entity,
                         $action,
-                        $changeSet
+                        $labeledChangeSet,
+                        $this->reader->getLabel()
                     );
 
                 }
             }
         } catch (\Exception $e) {
-            $this->monolog->error($e->getMessage());
+           if($this->monolog) {
+               $this->monolog->error($e->getMessage());
+           }
         }
     }
 

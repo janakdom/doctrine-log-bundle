@@ -3,8 +3,9 @@
 namespace Mb\DoctrineLogBundle\Service;
 
 use Doctrine\ORM\EntityManagerInterface;
-use Mb\DoctrineLogBundle\Entity\Log as LogEntity;
 use Symfony\Component\Security\Core\Security;
+use Mb\DoctrineLogBundle\Entity\Log as LogEntity;
+use Mb\DoctrineLogBundle\Entity\LoggableInterface;
 
 /**
  * Class Logger
@@ -14,6 +15,7 @@ use Symfony\Component\Security\Core\Security;
 class Logger
 {
     protected EntityManagerInterface $em;
+
     protected Security $security;
 
     /**
@@ -33,10 +35,11 @@ class Logger
      *
      * @param object $object
      * @param string $action
-     * @param string $changes
+     * @param array|null $changes
+     * @param null $label
      * @return LogEntity
      */
-    public function log($object, $action, $changes = null) :LogEntity
+    public function log(object $object, string $action, array $changes = null, $label = null) :LogEntity
     {
         $class = $this->em->getClassMetadata(get_class($object));
         $identifier = $class->getIdentifierValues($object);
@@ -45,12 +48,20 @@ class Logger
         if ($this->security->getUser()) {
             $userIdentifier = $this->security->getUser()->getUserIdentifier();
         }
+
+        $ownerIdentifier = null;
+        if ($object instanceof LoggableInterface) {
+            $ownerIdentifier = $object->getOwnerIdentifier();
+        }
+
         return new LogEntity(
             $class->getName(),
             implode(", ", $identifier),
             $action,
             $userIdentifier,
-            $changes
+            $ownerIdentifier,
+            $changes,
+            $label
         );
     }
 

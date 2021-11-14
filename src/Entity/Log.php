@@ -3,15 +3,16 @@
 namespace Mb\DoctrineLogBundle\Entity;
 
 use DateTimeImmutable;
+use DateTimeInterface;
 use Doctrine\ORM\Mapping as ORM;
-use Knp\DoctrineBehaviors\Contract\Entity\BlameableInterface;
 use Knp\DoctrineBehaviors\Model\Blameable\BlameableTrait;
+use Knp\DoctrineBehaviors\Contract\Entity\BlameableInterface;
 
 /**
  * Class Log
  *
  * @ORM\Entity
- * @ORM\Table(name="mb_entity_log")
+ * @ORM\Table(name="changes_log")
  *
  * @package CoreBundle\Entity
  */
@@ -33,72 +34,72 @@ class Log
     const ACTION_REMOVE = 'remove';
 
     /**
-     * @var int $id
-     *
      * @ORM\Id
      * @ORM\Column(type="integer")
      * @ORM\GeneratedValue(strategy="AUTO")
      */
-    protected $id;
+    protected int $id;
 
     /**
-     * @var string $objectClass
-     *
-     * @ORM\Column(name="object_class", type="string")
+     * @ORM\Column(type="string", length=1024)
      */
-    protected $objectClass;
+    protected string $instanceId;
 
     /**
-     * @var string $foreignKey
-     *
-     * @ORM\Column(name="foreign_key", type="string", length=1024)
-     */
-    protected $foreignKey;
-
-    /**
-     * @var string $action
-     *
-     * @ORM\Column(name="action", type="string")
-     */
-    protected $action;
-
-    /**
-     * @var array $changes
-     *
-     * @ORM\Column(name="changes", type="json", nullable=true)
-     */
-    protected $changes;
-
-    /**
-     * @var \DateTime
-     *
-     * @ORM\Column(type="datetime_immutable", nullable=false)
-     */
-    protected $createdAt;
-
-    /**
-     * @var string
-     *
      * @ORM\Column(type="string", length=255, nullable=true)
      */
-    protected $changedBy;
+    protected ?string $instanceOwner;
+
+    /**
+     * @ORM\Column(type="string")
+     */
+    protected string $objectClass;
+
+    /**
+     * @ORM\Column(type="string", length=64, nullable=true)
+     */
+    protected ?string $label;
+
+    /**
+     * @ORM\Column(type="string")
+     */
+    protected string $action;
+
+    /**
+     * @ORM\Column(name="changes", type="json", nullable=true)
+     */
+    protected ?array $changes;
+
+    /**
+     * @ORM\Column(type="datetime_immutable", nullable=false)
+     */
+    protected DateTimeImmutable $createdAt;
+
+    /**
+     * @ORM\Column(type="string", length=255, nullable=true)
+     */
+    protected ?string $changedBy;
 
     /**
      * Log constructor.
      */
     public function __construct(
         string $objectClass,
-        string $foreignKey,
+        string $instanceId,
         string $action,
         ?string $changedBy,
-        ?array $changes
+        ?string $instanceOwner,
+        ?array $changes,
+        ?string $label
     ) {
         $this->objectClass = $objectClass;
-        $this->foreignKey = $foreignKey;
+        $this->instanceId = $instanceId;
         $this->action = $action;
         $this->changes = $changes;
+        $this->label = $label;
 
         $this->changedBy = $changedBy;
+        $this->instanceOwner = $instanceOwner;
         $this->createdAt = new DateTimeImmutable();
     }
 
@@ -123,13 +124,13 @@ class Log
     }
 
     /**
-     * Get foreignKey
+     * Get instance id
      *
      * @return string
      */
-    public function getForeignKey() : string
+    public function getInstanceId() : string
     {
-        return $this->foreignKey;
+        return $this->instanceId;
     }
 
     /**
@@ -145,17 +146,47 @@ class Log
     /**
      * Get changes
      *
-     * @return array
+     * @return array|null
      */
-    public function getChanges()
+    public function getChanges() :?array
     {
         return $this->changes;
     }
 
     /**
-     * @return \DateTime
+     * Get editor
+     *
+     * @return string|null
      */
-    public function getCreatedAt(): \DateTime
+    public function getChangedBy() :?string
+    {
+        return $this->changedBy;
+    }
+
+    /**
+     * Get instance owner
+     *
+     * @return string|null
+     */
+    public function getInstanceOwner() :?string
+    {
+        return $this->instanceOwner;
+    }
+
+    /**
+     * Get instance label
+     *
+     * @return string|null
+     */
+    public function getLabel() :?string
+    {
+        return $this->label;
+    }
+
+    /**
+     * @return DateTimeInterface
+     */
+    public function getCreatedAt(): DateTimeInterface
     {
         return $this->createdAt;
     }

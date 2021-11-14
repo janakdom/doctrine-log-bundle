@@ -24,4 +24,6 @@ class Loggable
      * @var string Expression, what to log on delete requests (to make log-analysis easier)
      */
     public $onDeleteExpr = null;
+
+    public $label = null;
 }
