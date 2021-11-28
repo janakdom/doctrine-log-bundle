@@ -18,7 +18,7 @@ class Loggable
      * @var string
      * @Enum({"exclude_all", "include_all"})
      */
-    public $strategy = self::STRATEGY_INCLUDE_ALL;
+    public $strategy = self::STRATEGY_EXCLUDE_ALL;
 
     /**
      * @var string Expression, what to log on delete requests (to make log-analysis easier)

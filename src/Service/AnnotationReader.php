@@ -106,18 +106,12 @@ class AnnotationReader
      */
     public function getPropertyExpression(string $property) :?string
     {
-        $property = new \ReflectionProperty(
-            str_replace('Proxies\__CG__\\', '', get_class($this->entity)),
-            $property
-        );
-
-        $annotation = $this->reader->getPropertyAnnotation($property, Log::class);
-
-        if ($annotation instanceof Log) {
-            return $annotation->expression;
+        $annotation = $this->getPropertyReflection($property, Log::class);
+        if(!$annotation) {
+            return null;
         }
 
-        return null;
+        return $annotation->expression;
     }
 
     /**
@@ -127,17 +121,48 @@ class AnnotationReader
      */
     public function getPropertyLabel(string $property) :?string
     {
-        $property = new \ReflectionProperty(
-            str_replace('Proxies\__CG__\\', '', get_class($this->entity)),
-            $property
-        );
-
-        $annotation = $this->reader->getPropertyAnnotation($property, Log::class);
-
-        if ($annotation instanceof Log) {
-            return $annotation->label;
+        $annotation = $this->getPropertyReflection($property, Log::class);
+        if(!$annotation) {
+            return null;
         }
 
+        return $annotation->label;
+    }
+
+    /**
+     * @param string $property
+     * @return bool
+     */
+    public function getPropertyIgnore(string $property) :bool
+    {
+        $annotation = $this->getPropertyReflection($property, Log::class);
+        if(!$annotation) {
+            return false;
+        }
+
+        return $annotation->ignore;
+    }
+
+    /**
+     * @param string $property
+     * @param string $className
+     * @return null
+     */
+    private function getPropertyReflection(string $property, string $className)
+    {
+        try {
+            $property = new \ReflectionProperty(
+                str_replace('Proxies\__CG__\\', '', get_class($this->entity)),
+                $property
+            );
+
+            $annotation = $this->reader->getPropertyAnnotation($property, $className);
+
+            if ($annotation instanceof $className) {
+                return $annotation;
+            }
+
+        } catch (\Exception $e) {}
         return null;
     }
 }

@@ -2,6 +2,8 @@
 
 namespace Mb\DoctrineLogBundle\EventSubscriber;
 
+use Exception;
+use DateTimeInterface;
 use Doctrine\ORM\Events;
 use ReflectionException;
 use Psr\Log\LoggerInterface;
@@ -12,6 +14,7 @@ use Doctrine\ORM\Event\LifecycleEventArgs;
 use Doctrine\ORM\Event\PostFlushEventArgs;
 use Mb\DoctrineLogBundle\Entity\Log as LogEntity;
 use Mb\DoctrineLogBundle\Service\AnnotationReader;
+use Mb\DoctrineLogBundle\Entity\LoggableInterface;
 use Mb\DoctrineLogBundle\Service\Logger as LoggerService;
 use Symfony\Component\ExpressionLanguage\ExpressionLanguage;
 
@@ -186,7 +189,7 @@ final class Logger implements EventSubscriber
        try {
             $this->reader->init($entity);
             if ($this->reader->isLoggable()) {
-                $labeledChangeSet = [];
+                $changeSet = [];
 
                 if ($action === LogEntity::ACTION_UPDATE) {
                     $uow = $this->em->getUnitOfWork();
@@ -200,59 +203,34 @@ final class Logger implements EventSubscriber
 
                     // just getting the changed objects ids
                     foreach ($changeSet as $key => &$values) {
-                        if (in_array($key, $this->ignoreProperties) || !$this->reader->isLoggable($key)) {
+                        $ignore = $this->reader->getPropertyIgnore($key);
+                        if (in_array($key, $this->ignoreProperties) || !$this->reader->isLoggable($key) || $ignore) {
                             // ignore configured properties
                             unset($changeSet[$key]);
-                        }
-
-                        $expression = $this->reader->getPropertyExpression($key);
-
-                        if ($expression != null) {
-                            if (is_object($values[0])) {
-                                $values[0] = $this->expressionLanguage->evaluate($expression, ['obj' => $values[0]]);
-                            }
-                            if (is_object($values[1])) {
-                                $values[1] = $this->expressionLanguage->evaluate($expression, ['obj' => $values[1]]);
-                            }
-                        } else {
-                            if ($values[0] instanceof \DateTime) {
-                                $values[0] = $values[0]->format('Y-m-d H:i:s');
-                            }
-                            if ($values[1] instanceof \DateTime) {
-                                $values[1] = $values[1]->format('Y-m-d H:i:s');
-                            }
-
-                            if (is_object($values[0]) && method_exists($values[0], 'getId')) {
-                                $values[0] = $values[0]->getId();
-                            }
-
-                            if (is_object($values[1]) && method_exists($values[1], 'getId')) {
-                                $values[1] = $values[1]->getId();
-                            }
-                        }
-
-
-                        $label = $this->reader->getPropertyLabel($key);
-                        if($label) {
-                            $labeledChangeSet[$label] = $values;
-                        } else {
-                            $labeledChangeSet[$key] = $values;
                         }
                     }
                 }
 
                 if($action === LogEntity::ACTION_REMOVE) {
-                    $expression = $this->reader->getOnDeleteLogExpression();
-
-                    if(!empty($expression)) {
-                        $labeledChangeSet['_remove'] = $this->expressionLanguage->evaluate($expression, ['obj' => $entity]);
+                    $data = [];
+                    if($entity instanceof LoggableInterface){
+                        $data = $entity->dumpOnDelete();
+                    } else {
+                        $expression = $this->reader->getOnDeleteLogExpression();
+                        if(!empty($expression)) {
+                            $data = $this->expressionLanguage->evaluate($expression, ['obj' => $entity]);
+                        }
                     }
+                    $changeSet['_remove'] = $data;
                 }
 
-                if ($action !== LogEntity::ACTION_UPDATE || !empty($labeledChangeSet)) {
+                if ($action !== LogEntity::ACTION_UPDATE || !empty($changeSet)) {
                     if (isset($this->logs[spl_object_hash(($entity))])) {
-                        $labeledChangeSet = array_merge($labeledChangeSet, $this->logs[spl_object_hash($entity)]->getChanges());
+                        $changeSet = array_merge($changeSet, $this->logs[spl_object_hash($entity)]->getChanges());
                     }
+
+                    $labeledChangeSet = $this->formatArray($changeSet);
+
                     $this->logs[spl_object_hash($entity)] = $this->loggerService->log(
                         $entity,
                         $action,
@@ -263,10 +241,72 @@ final class Logger implements EventSubscriber
                 }
             }
         } catch (\Exception $e) {
-           if($this->monolog) {
-               $this->monolog->error($e->getMessage());
-           }
+           $this->monolog($e);
         }
+    }
+
+    private function getItemLabel($key) {
+        $label = $key;
+        try {
+            $label = $this->reader->getPropertyLabel($key);
+            if(!$label) {
+                $label = $key;
+            }
+        } catch (Exception $e) {
+        }
+        return $label;
+    }
+
+    /**
+     * @param array $items
+     * @return mixed
+     */
+    private function formatArray(array $items)
+    {
+        try {
+            $formated = [];
+            foreach ($items as $key => $item) {
+                $label = $this->getItemLabel($key);
+                $formated[$label] = is_array($item)
+                    ? $this->formatArray($item) : $this->formatValue($item, $key);
+            }
+            return $formated;
+        } catch (Exception $e) {
+            $this->monolog($e);
+        }
+        return [];
+    }
+
+    /**
+     * @param $value
+     * @param null $key
+     * @return mixed
+     * @throws ReflectionException
+     */
+    private function formatValue($value, $key = null)
+    {
+        if(is_array($value)) {
+            return $this->formatArray($value);
+        }
+
+        if($key != null && is_object($value)) {
+            $expression = $this->reader->getPropertyExpression($key);
+            if($expression) {
+                return $this->expressionLanguage->evaluate($expression, ['obj' => $value]);
+            }
+        }
+
+        if ($value instanceof DateTimeInterface) {
+            return $value->format('Y-m-d H:i:s P');
+        }
+        else if(is_object($value) && method_exists($value, "toString")) {
+            return $value->toString();
+        }
+        else if (is_object($value) && method_exists($value, 'getId')) {
+            return $value->getId();
+        }
+
+        return $value;
     }
 
     /**
@@ -284,5 +324,11 @@ final class Logger implements EventSubscriber
             Events::onFlush,
             Events::postFlush
         ];
+    }
+
+    private function monolog(Exception $e) {
+        if($this->monolog) {
+            $this->monolog->error($e->getMessage());
+        }
     }
 }

@@ -16,4 +16,7 @@ class Log
 
     /** */
     public $label = null;
+
+    /** */
+    public $ignore = false;
 }
